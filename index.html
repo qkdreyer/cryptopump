@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+	<button onclick="app.start();">Start</button>
+	<button onclick="app.stop();">Stop</button>
+	<label>Public Key <input id="public_key" type="text" size="50" value="5d8d323721b04747fdd829787a92f87a4e004e97"></label>
+	<label>Secret Key <input id="secret_key" type="text" size="90" value="9684fc139504966e84b19e0904396e35a72743d5d0be9073b37d6c01248a53c95745f1a3c113e89e"></label>
+	<label>Track Coin <input id="track_coin" type="text" value="DOGE/BTC"></label>
+
+	<table width="100%">
+		<tbody style="vertical-align: initial;"
+			<tr>
+				<td width="30%">
+					<ul id="markets"></ul>
+				</td>
+				<td style="vertical-align: initial;">
+					<ul id="market-logs"></ul>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+	
+</body>
+<script type="text/javascript" src="bower_components/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="bower_components/underscore/underscore-min.js"></script>
+<script type="text/javascript" src="bower_components/crypto-js/build/rollups/hmac-sha512.js"></script>
+<script type="text/javascript">
+
+/*$(function() {
+	$.ajaxSetup({timeout: 5000});
+});*/
+
+function Market(market) {
+	_.extend(this, market);
+	var $market = $('<li></li>', {'data-market-id': market.marketid});
+	$market.html(market.primary_currency_name + ' (' + market.marketid + ')');
+	$market.click(this.click.bind(this));
+	if ($('#track_coin').val() === market.label) $market.trigger('click');
+	return $market;
+}
+
+Market.prototype.click = function(e) {
+	$('#market-logs > [data-market-id]').hide().filter('[data-market-id=' + this.marketid + ']').show();
+	app.fetch(this.marketid);
+	window.scrollTo(0);
+	return false;
+}
+	
+function App() {
+	this.delay = 10000;
+	this.user_public_key = null;
+	this.user_secret_key = null;
+
+	this.$markets = $('#markets');
+	this.markets = [];	
+}
+
+App.prototype.set_credentials = function() {
+	this.user_public_key = $('#public_key').val();
+	this.user_secret_key = $('#secret_key').val();
+}
+
+App.prototype.api_query = function(_method, _req) {
+	var def = $.Deferred();
+	$.getJSON("api", {
+		method: _method,
+		req: _req,
+		key: this.user_public_key,
+		secret: this.user_secret_key
+	}).done(function(data, textStatus, jqXHR) {
+		return eval(data.success) ? def.resolve(data.return, _req) : def.resolve([], _req);
+	}).fail(function(jqXHR, textStatus, error) {
+		return def.resolve([], _req);
+	});
+	return def.promise();
+}
+
+App.prototype.gen_market_tree = function(markets) {
+	return _.reduce(markets, function(market_tree, market) {
+		if (!market_tree[market.secondary_currency_code]) market_tree[market.secondary_currency_code] = [];
+		market_tree[market.secondary_currency_code].push(market);
+		return market_tree;
+	}, {});
+}
+
+App.prototype.toggleMarkets = function(e) {
+	$(this).children('ul').toggle();
+}
+
+App.prototype.init = function() {
+	this.$markets.html("<li>Loading ...</li>");
+	return this.api_query("getmarkets").then(this.render.bind(this));//.then(this.fetchAll.bind(this));
+	//this.render(this.markets);
+}
+
+App.prototype.render = function(markets) {
+	if (!markets.length) return app.init();
+
+	var that = this;
+	this.markets = markets;
+	this.$markets.empty();
+	var $marketLogs = $('#market-logs');
+	
+	_.each(this.gen_market_tree(markets), function(markets, marketLabel) {
+		var $marketTree = $('<li>');
+		var $marketLabel = $('<label>').html(marketLabel + ' [' + markets.length + ']');
+		var $marketList = $('<ul>');
+
+		_.each(markets, function(market) {
+			var $marketLog = $('<div>', {'id': 'market-log-' + market.marketid, 'data-market-id': market.marketid}).html(market.label + ' Logs :').hide();
+			$marketLogs.append($marketLog);
+			$marketList.append(new Market(market));
+		});
+
+		$marketTree.click(that.toggleMarkets);
+		$marketTree.append($marketLabel);
+		$marketTree.append($marketList);
+		that.$markets.append($marketTree);
+	});	
+}
+
+App.prototype.start = function() {
+	this.enable = true;
+	this.set_credentials();
+	this.init().then(this.fetchAll.bind(this));
+}
+
+App.prototype.fetchAll = function() {
+	console.log('fetching all...');
+	var that = this;
+	_.each(this.markets, function(market, i) {
+		if (i > 50) return;
+		that.fetch(market.marketid, i);
+	});
+}
+
+App.prototype.fetch = function(marketID, i) {
+	var that = this;
+	this.api_query("markettrades", {marketid: marketID}).then(function(data, req) {
+		that.fetch_count = ++that.fetch_count || 1;
+		var marketID = req.marketid;
+		var perf1 = performance.now();
+		var $row = $('#market-log-' + marketID); //$('#market-logs > [data-market-id='+ marketID + ']');
+		var ready = $row.attr('data-ready') != null;
+		var lastTradeID = $row.attr('data-last') || 0;
+		var newTrades = 0;
+		var $elements = [];
+
+		if (ready) {
+			_.every(data, function(trade, i) {
+				var curTradeID = trade.tradeid;
+				var diffTrade = curTradeID > lastTradeID;
+				if (diffTrade) {
+					$elements.push('<div>' + trade.initiate_ordertype + ': Price=' + trade.tradeprice + ' Quantity=' + trade.quantity + ' Total=' + trade.total + ' Date=' + trade.datetime + '</div>');
+					console.log('new elem!');
+					if (marketID === "132") console.log('much elem!!!');
+					newTrades++;
+				}
+				return diffTrade;
+			});
+//console.log('rl', $row.length);
+
+			var $logs = document.getElementById('market-log-' + marketID)
+			var $log = document.createElement("div");
+			$log.innerHTML = $elements.join();
+			$logs.appendChild($log);
+			$logs.insertBefore($log, $logs.firstChild);
+			$row.prepend($elements);
+		}
+		if (newTrades > 0 || !ready) $row.prepend('<hr>');
+		/*if (newTrades > 0) {
+			$('#market-logs').fadeTo('slow', 0).fadeTo('slow', 1.0);
+			console.log('new trades', newTrades);
+		}*/
+		var perf2 = performance.now();
+		console.log('ready', ready, $row.attr('data-ready'), marketID, that.fetch_count);
+		if (data.length > 0) $row.attr({'data-last': data[0].tradeid, 'data-ready': true});
+		//console.log('refetching?', that.enable, $row.length, 'build', perf2 - perf1);
+		//if (that.enable) setTimeout(that.fetch.call(that, marketID), 3000);
+	});
+	console.log('firing', marketID, i);
+}
+
+App.prototype.stop = function() {
+	this.enable = false;
+}
+
+var app = new App();
+app.start();
+
+</script>
+</html>

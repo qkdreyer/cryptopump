@@ -1,0 +1,29 @@
+{
+  "name": "cryptopump",
+  "version": "0.0.0",
+  "description": "Cryptsy Pump Analysis Tool",
+  "main": "server.js",
+  "dependencies": {
+    "bower": "~1.2.8",
+    "connect": "~2.12.0",
+    "express": "~3.4.8",
+    "nodemon": "~1.0.14",
+    "qs": "~0.6.6",
+    "request": "~2.33.0",
+    "underscore": "~1.5.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/qkdreyer/cryptopump.git"
+  },
+  "author": "qkdreyer (Quentin Dreyer)",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/qkdreyer/cryptopump/issues"
+  }
+}

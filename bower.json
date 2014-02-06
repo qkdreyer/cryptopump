@@ -1,0 +1,23 @@
+{
+  "name": "cryptopump",
+  "version": "0.0.0",
+  "homepage": "https://github.com/qkdreyer/cryptopump",
+  "authors": [
+    "Quentin Dreyer <quentin.dreyer@gmail.com>"
+  ],
+  "description": "Cryptsy Pump Analysis Tool",
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "underscore": "~1.5.2",
+    "jquery": "~2.1.0",
+    "crypto-js": "~3.1.2"
+  }
+}
